@@ -230,144 +230,99 @@ void page_4()
 {
     float max_temp = 0.0;
     String temp = "";
+
+    // Alert states:
+    // 0 = below 30 C
+    // 1 = 30 C to below 36 C
+    // 2 = 36 C or higher
+    int alert_state = 0;
+
     // 关闭触屏抗干扰
     touch_flag = -1;
     vTaskDelay(1000);
 
     Serial.println(F("4 page"));
+
+    // Initialize thermal camera
     mlx_init();
     mlx_frame_malloc();
+
+    // Initialize speaker for thermal alerts
+    alert_audio_init();
 
     gfx->fillScreen(BLACK);
     gfx->setTextColor(WHITE);
     gfx->setTextSize(4);
 
+
     while (1)
     {
-        // mlx_serial();
+        // Get maximum temperature
         max_temp = mlx_img();
+
+
+        // ==========================================
+        // TEMPERATURE ALERT LOGIC
+        // ==========================================
+
+        // 36 C or higher
+        if (max_temp >= 36.0)
+        {
+            // Only play when entering this state
+            if (alert_state != 2)
+            {
+                alert_state = 2;
+
+                Serial.println(
+                    "ALERT: Possible human heat signature detected"
+                );
+
+                play_human_alert();
+            }
+        }
+
+        // 30 C to below 36 C
+        else if (max_temp >= 30.0)
+        {
+            // Only play when entering this state
+            if (alert_state != 1)
+            {
+                alert_state = 1;
+
+                Serial.println(
+                    "WARNING: Elevated temperature detected"
+                );
+
+                play_temp_warning();
+            }
+        }
+
+        // Below 30 C
+        else
+        {
+            alert_state = 0;
+        }
+
+
+        // ==========================================
+        // DISPLAY TEMPERATURE
+        // ==========================================
 
         temp = "";
         temp = temp + "Max temp:" + max_temp;
 
-        gfx->fillRect(0, 361, 480, 120, BLACK);
+        gfx->fillRect(
+            0,
+            361,
+            480,
+            120,
+            BLACK
+        );
 
         gfx->setCursor(20, 365);
         gfx->println(temp);
 
+
         vTaskDelay(100);
     }
-}
-
-// Normal function
-void time_display(int x, int y, int country_num)
-{
-    struct tm timeinfo;
-
-    gfx->fillRect(x, y, 460, 80, COLOR_BACKGROUND);
-    // gfx->drawRect(x, y, 420, 80, COLOR_LINE);
-    gfx->setTextColor(COLOR_TEXT);
-    gfx->setTextSize(4);
-
-    if (!getLocalTime(&timeinfo))
-    {
-        Serial.println("Failed to obtain time");
-        gfx->setCursor(x, y + 10);
-        gfx->println("NTC initing....");
-        return;
-    }
-    Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
-
-    char time_temp[20];
-
-    sprintf(time_temp, "%02d/%02d/%02d %s",
-            timeinfo.tm_year - 100, timeinfo.tm_mon, timeinfo.tm_mday, city_list[country_num]);
-    gfx->setCursor(x, y + 10);
-    gfx->println(time_temp);
-
-    sprintf(time_temp, "%02d:%02d:%02d UTC %d",
-            timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec, zone_list[country_num]);
-    gfx->setCursor(x, y + 50);
-    gfx->println(time_temp);
-}
-
-void weather_display(int x, int y, int country_num)
-{
-    float temperature = 0.0;
-    float humidty = 0.0;
-    String weather = "NULL";
-    int weather_num = 0;
-
-    gfx->fillRect(x, y, 420, 160, COLOR_BACKGROUND);
-    gfx->drawRect(x, y, 420, 160, COLOR_LINE);
-
-    weather_request2(country_num, &temperature, &humidty, &weather, &weather_num);
-
-    gfx->setTextColor(COLOR_TEXT);
-    gfx->setTextSize(3);
-
-    String temp = "";
-    char c_str[30];
-
-    sprintf(c_str, "Temp: %.1f C", temperature);
-    // temp = temp + "Temp:" + temperature;
-    gfx->setCursor(x + 10, y + 20);
-    gfx->println(c_str);
-
-    sprintf(c_str, "Humi: %.1f %%", humidty);
-    // temp = "";
-    // temp = temp + "Humi:" + humidty;
-    gfx->setCursor(x + 10, y + 60);
-    gfx->println(c_str);
-
-    gfx->setCursor(x + 10, y + 100);
-    gfx->println(weather);
-
-    temp = "";
-    temp = temp + "/weather/" + weather_num + ".jpg";
-
-    img_display(x + 280, y + 20, 120, 120, temp);
-}
-
-// Other function
-void drawButton(Button b)
-{
-    int b_x;
-    int b_y;
-    int b_w;
-    int b_h;
-    int shadow_len = 4;
-    String text;
-    int textSize;
-
-    b.getFoDraw(&b_x, &b_y, &b_w, &b_h, &text, &textSize);
-
-    // gfx->fillRect(b_x, b_y, b_w, b_h, COLOR_BUTTON);
-    gfx->drawRect(b_x, b_y, b_w, b_h, COLOR_LINE);
-    gfx->setCursor(b_x + 20, b_y + 20);
-    gfx->setTextColor(COLOR_TEXT);
-    gfx->setTextSize(textSize);
-    gfx->println(text);
-
-    // Add button shadow
-    if (b.getValue() != UNABLE)
-    {
-        gfx->fillRect(b_x + shadow_len, b_y + b_h, b_w, shadow_len, COLOR_SHADOW);
-        gfx->fillRect(b_x + b_w, b_y + shadow_len, shadow_len, b_h, COLOR_SHADOW);
-    }
-}
-
-void drawFlag(Button b)
-{
-    int b_x;
-    int b_y;
-    int b_w;
-    int b_h;
-    String text;
-    int textSize;
-
-    b.getFoDraw(&b_x, &b_y, &b_w, &b_h, &text, &textSize);
-
-    gfx->fillRect(b_x, b_y, b_w, b_h, BLACK);
-    img_display(b_x, b_y, b_w, b_h, text);
 }
