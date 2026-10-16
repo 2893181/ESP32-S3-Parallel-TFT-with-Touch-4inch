@@ -9,6 +9,10 @@ void music_init();
 void music_mute();
 void Task_Audio(void *pvParameters);
 
+void alert_audio_init();
+void play_temp_warning();
+void play_human_alert();
+
 int get_music_list(fs::FS &fs, const char *dirname, String *list, int length);
 void open_new_song(String filename);
 void audio_eof_mp3(const char *info);
